@@ -1,0 +1,37 @@
+@page "/venues"
+@inject MatchVolley.Infrastructure.Persistence.MatchVolleyDbContext Db
+
+<h2>Locais</h2>
+
+@if (_venues is null)
+{
+    <p>Carregando...</p>
+}
+else if (_venues.Count == 0)
+{
+    <p>Nenhum local encontrado.</p>
+}
+else
+{
+    <ul>
+        @foreach (var v in _venues)
+        {
+            <li>
+                <b>@v.Name</b> — @v.City/@v.State
+                (<a href="@($"/courts/{v.Id}")">ver quadras</a>)
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<MatchVolley.Domain.Entities.Venue>? _venues;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _venues = await Db.Venues
+            .Where(v => v.IsActive)
+            .OrderBy(v => v.Name)
+            .ToListAsync();
+    }
+}

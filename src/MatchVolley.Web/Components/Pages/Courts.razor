@@ -1,0 +1,38 @@
+@page "/courts/{venueId:guid}"
+@inject MatchVolley.Infrastructure.Persistence.MatchVolleyDbContext Db
+
+<h2>Quadras</h2>
+
+@if (_courts is null)
+{
+    <p>Carregando...</p>
+}
+else if (_courts.Count == 0)
+{
+    <p>Nenhuma quadra encontrada.</p>
+}
+else
+{
+    <ul>
+        @foreach (var c in _courts)
+        {
+            <li>
+                <b>@c.Name</b> — @c.Surface
+                (<a href="@($"/availability/{c.Id}")">ver horários</a>)
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter] public Guid venueId { get; set; }
+    private List<MatchVolley.Domain.Entities.Court>? _courts;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _courts = await Db.Courts
+            .Where(c => c.VenueId == venueId && c.IsActive)
+            .OrderBy(c => c.Name)
+            .ToListAsync();
+    }
+}

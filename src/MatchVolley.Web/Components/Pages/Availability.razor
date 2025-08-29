@@ -1,0 +1,63 @@
+@page "/availability/{courtId:guid}"
+@inject MatchVolley.Infrastructure.Persistence.MatchVolleyDbContext Db
+@inject IHttpContextAccessor HttpCtx
+
+<h2>Horários disponíveis</h2>
+
+@if (_slots is null)
+{
+    <p>Carregando...</p>
+}
+else if (_slots.Count == 0)
+{
+    <p>Nenhum horário disponível.</p>
+}
+else
+{
+    <ul>
+        @foreach (var s in _slots)
+        {
+            <li>
+                @s.StartUtc.ToLocalTime():t - @s.EndUtc.ToLocalTime():t • R$ @s.Price
+                <button @onclick="@(() => Reservar(s.Id))">Reservar</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter] public Guid courtId { get; set; }
+    private List<MatchVolley.Domain.Entities.CourtAvailability>? _slots;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var now = DateTime.UtcNow;
+        _slots = await Db.CourtAvailabilities
+            .Where(a => a.CourtId == courtId && a.StartUtc >= now && !a.IsBlocked)
+            .OrderBy(a => a.StartUtc)
+            .Take(20)
+            .ToListAsync();
+    }
+
+    private async Task Reservar(Guid availabilityId)
+    {
+        var slot = _slots!.First(s => s.Id == availabilityId);
+        var userId = HttpCtx.HttpContext?.User?.Identity?.IsAuthenticated == true
+            ? HttpCtx.HttpContext!.User.Claims.First(c => c.Type == "sub").Value
+            : "demo-user"; // substitua por autenticação real
+
+        // cria reserva simples direto pelo DbContext (para demo).
+        // Em produção, use o MediatR CreateBookingCommand.
+        Db.Bookings.Add(new MatchVolley.Domain.Entities.Booking
+        {
+            CourtId = slot.CourtId,
+            UserId = userId,
+            StartUtc = slot.StartUtc,
+            EndUtc = slot.EndUtc,
+            Amount = slot.Price,
+            Status = "Confirmed"
+        });
+        await Db.SaveChangesAsync();
+        await OnParametersSetAsync();
+    }
+}
